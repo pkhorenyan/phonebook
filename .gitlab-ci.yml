@@ -1,0 +1,29 @@
+stages:
+  - build_and_push
+
+build-image:
+  stage: build_and_push
+  # Используем образ Docker, а также сервис docker:dind (Docker-in-Docker)
+  image: docker:24.0.5-cli #
+  services:
+    - docker:24.0.5-dind #
+  
+  variables:
+    # Определяем имя образа в реестре GitLab, используя встроенные переменные
+    # $CI_REGISTRY_IMAGE автоматически принимает формат registry.gitlab.com/<username>/<project_name>
+    IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+  script:
+    # 1. Авторизуемся в реестре контейнеров GitLab
+    # Используем предопределенные переменные GitLab $CI_REGISTRY_USER и $CI_JOB_TOKEN
+    - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
+
+    # 2. Собираем Docker-образ, используя Dockerfile в текущей директории
+    - docker build -t $IMAGE_NAME .
+
+    # 3. Загружаем (push) собранный образ в реестр GitLab
+    - docker push $IMAGE_NAME
+    
+  # Запуск этого задания только при коммитах в ветки (исключая теги, которые могут иметь свой собственный процесс)
+  only:
+    - main
